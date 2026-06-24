@@ -1,0 +1,25 @@
+{
+  "name": "mawakit",
+  "version": "1.0.0",
+  "description": "Interactive prayer time calculator for the command line.",
+  "type": "module",
+  "bin": {
+    "mawakit": "./src/cli.js"
+  },
+  "files": [
+    "src",
+    "data/locations.json",
+    "data/README.md"
+  ],
+  "scripts": {
+    "start": "node ./src/cli.js",
+    "mawakit": "node ./src/cli.js",
+    "test": "node ./test/prayer-times.test.js"
+  },
+  "dependencies": {
+    "inquirer": "^12.6.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
