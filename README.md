@@ -5,9 +5,10 @@ Mawakit is an interactive command-line prayer time calculator built with Node.js
 ## Features
 
 - Search more than 234,000 locations from the GeoNames city database.
-- Automatically suggests the standard UTC offset from the selected location timezone and date.
-- Asks whether daylight saving time should be applied.
-- Remembers your last prompt choices, including location, convention, Asr convention, UTC offset, daylight-saving setting, and elevation.
+- Shows the city time default before applying prompt memory.
+- Shows default values in prompt labels before each answer.
+- Lets you choose city time defaults, remembered time settings, or manual UTC/daylight-saving settings.
+- Remembers your last prompt choices, including location, convention, Asr convention, UTC offset, daylight-saving setting, and elevation above sea level.
 - Supports common prayer-time conventions:
   - Egyptian General Authority of Survey
   - Muslim World League
@@ -45,7 +46,7 @@ Run the CLI:
 npm start
 ```
 
-Then choose your location, date, standard UTC offset, daylight-saving setting, prayer-time convention, Asr convention, and elevation.
+Then choose your location and date. Mawakit will show the city time default first, then let you use that default, reuse remembered time settings, or enter the standard UTC offset and daylight-saving setting manually. After that, choose the prayer-time convention, Asr convention, and elevation above sea level.
 
 ## Prompt Memory
 
@@ -54,7 +55,7 @@ Mawakit saves your last choices in the user configuration folder:
 - Windows: `%APPDATA%\\mawakit\\preferences.json`
 - macOS/Linux: `$XDG_CONFIG_HOME/mawakit/preferences.json` or `~/.config/mawakit/preferences.json`
 
-The next run will offer your previous location and reuse your previous defaults.
+The next run will offer your previous location and remembered defaults. City time defaults are still shown before remembered time settings are offered.
 
 ## Data Source
 

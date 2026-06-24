@@ -45,6 +45,21 @@ function savePreferences(preferences) {
   fs.writeFileSync(preferencesPath, `${JSON.stringify(preferences, null, 2)}\n`);
 }
 
+function withDefaultLabel(message, value) {
+  return `${message} (${value})`;
+}
+
+function methodName(value) {
+  if (value === CUSTOM_METHOD) {
+    return "Custom angles";
+  }
+
+  return CALCULATION_METHODS[value]?.name || value;
+}
+
+function asrName(value) {
+  return Number(value) === 2 ? "Hanafi" : "Standard";
+}
 function formatMethodChoice(method) {
   const parts = [`Fajr ${method.fajrAngle} deg`];
   if (Number.isFinite(method.ishaAngle)) {
@@ -161,6 +176,86 @@ function applyDaylightSaving(timezone, daylightSaving) {
   return daylightSaving ? timezone + 1 : timezone;
 }
 
+function formatUtcOffset(offset) {
+  const sign = offset >= 0 ? "+" : "-";
+  const absolute = Math.abs(offset);
+  const hours = Math.trunc(absolute);
+  const minutes = Math.round((absolute - hours) * 60);
+  return minutes === 0 ? `UTC${sign}${hours}` : `UTC${sign}${hours}:${String(minutes).padStart(2, "0")}`;
+}
+
+function formatTimeSettings(settings) {
+  const finalTimezone = applyDaylightSaving(settings.baseTimezone, settings.daylightSaving);
+  return `${formatUtcOffset(settings.baseTimezone)}, daylight saving ${settings.daylightSaving ? "yes" : "no"}, final ${formatUtcOffset(finalTimezone)}`;
+}
+
+function rememberedTimeSettings(preferences) {
+  const baseTimezone = Number(preferences.baseTimezone ?? preferences.timezone);
+  if (!Number.isFinite(baseTimezone)) {
+    return null;
+  }
+
+  return {
+    baseTimezone,
+    daylightSaving: typeof preferences.daylightSaving === "boolean" ? preferences.daylightSaving : false
+  };
+}
+
+async function askTimeSettings(preferences, cityDefaults) {
+  const remembered = rememberedTimeSettings(preferences);
+
+  console.log(`\nCity time default: ${formatTimeSettings(cityDefaults)}`);
+  if (remembered) {
+    console.log(`Remembered time setting: ${formatTimeSettings(remembered)}`);
+  }
+
+  const choices = [
+    { name: `Use city default (${formatTimeSettings(cityDefaults)})`, value: "city" }
+  ];
+
+  if (remembered) {
+    choices.push({ name: `Use remembered setting (${formatTimeSettings(remembered)})`, value: "remembered" });
+  }
+
+  choices.push({ name: "Enter manually", value: "manual" });
+
+  const { source } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "source",
+      message: "Time and daylight saving",
+      choices,
+      default: "city"
+    }
+  ]);
+
+  if (source === "city") {
+    return cityDefaults;
+  }
+
+  if (source === "remembered") {
+    return remembered;
+  }
+
+  const manual = await inquirer.prompt([
+    {
+      type: "input",
+      name: "baseTimezone",
+      message: withDefaultLabel("Standard UTC offset", remembered?.baseTimezone ?? cityDefaults.baseTimezone),
+      default: String(remembered?.baseTimezone ?? cityDefaults.baseTimezone),
+      validate: (value) => parseNumber(value, "UTC offset", { min: -12, max: 14 }),
+      filter: Number
+    },
+    {
+      type: "confirm",
+      name: "daylightSaving",
+      message: withDefaultLabel("Apply daylight saving time?", (remembered?.daylightSaving ?? cityDefaults.daylightSaving) ? "yes" : "no"),
+      default: remembered?.daylightSaving ?? cityDefaults.daylightSaving
+    }
+  ]);
+
+  return manual;
+}
 function formatLocation(location) {
   if (!location) {
     return "";
@@ -200,7 +295,7 @@ async function askManualLocation(defaultLocation) {
     {
       type: "input",
       name: "latitude",
-      message: "Latitude",
+      message: withDefaultLabel("Latitude", defaultLocation?.latitude ?? 31.19),
       default: String(defaultLocation?.latitude ?? 31.19),
       validate: (value) => parseNumber(value, "Latitude", { min: -90, max: 90 }),
       filter: Number
@@ -208,7 +303,7 @@ async function askManualLocation(defaultLocation) {
     {
       type: "input",
       name: "longitude",
-      message: "Longitude",
+      message: withDefaultLabel("Longitude", defaultLocation?.longitude ?? 29.95),
       default: String(defaultLocation?.longitude ?? 29.95),
       validate: (value) => parseNumber(value, "Longitude", { min: -180, max: 180 }),
       filter: Number
@@ -252,7 +347,7 @@ async function askForLocation(preferences) {
     {
       type: "input",
       name: "search",
-      message: "City or country",
+      message: withDefaultLabel("City or country", rememberedLocation?.city || "Alexandria"),
       default: rememberedLocation?.city || "Alexandria",
       validate: (value) => value.trim() ? true : "Enter a city or country name."
     }
@@ -298,7 +393,7 @@ async function main() {
     {
       type: "input",
       name: "year",
-      message: "Year",
+      message: withDefaultLabel("Year", current.year),
       default: String(current.year),
       validate: (value) => parseNumber(value, "Year", { min: 1900, max: 3000 }),
       filter: Number
@@ -306,7 +401,7 @@ async function main() {
     {
       type: "input",
       name: "month",
-      message: "Month",
+      message: withDefaultLabel("Month", current.month),
       default: String(current.month),
       validate: (value) => parseNumber(value, "Month", { min: 1, max: 12 }),
       filter: Number
@@ -317,7 +412,7 @@ async function main() {
     {
       type: "input",
       name: "day",
-      message: "Day",
+      message: withDefaultLabel("Day", current.day),
       default: String(current.day),
       validate: (value) => {
         const parsed = parseNumber(value, "Day", { min: 1, max: 31 });
@@ -334,31 +429,20 @@ async function main() {
 
   const date = { ...dateBase, day };
   const timezoneDefaults = getTimezoneDefaults(location, date);
-  const baseTimezone = Number(preferences.baseTimezone ?? timezoneDefaults.baseTimezone);
-  const rememberedDaylightSaving = defaultDaylightSaving(preferences, timezoneDefaults);
+  const timeSettings = await askTimeSettings(preferences, timezoneDefaults);
   const rememberedMethod = preferences.method && (CALCULATION_METHODS[preferences.method] || preferences.method === CUSTOM_METHOD)
     ? preferences.method
     : location.country === "Egypt" ? "egyptian" : "mwl";
+  const defaultAsrShadowFactor = preferences.asrShadowFactor ?? 1;
+  const defaultElevation = preferences.height ?? location.elevation ?? 5;
+  const defaultFajrAngle = preferences.fajrAngle ?? 18;
+  const defaultIshaAngle = preferences.ishaAngle ?? 17;
 
   const answers = await inquirer.prompt([
     {
-      type: "input",
-      name: "timezone",
-      message: "UTC offset",
-      default: String(baseTimezone),
-      validate: (value) => parseNumber(value, "UTC offset", { min: -12, max: 14 }),
-      filter: Number
-    },
-    {
-      type: "confirm",
-      name: "daylightSaving",
-      message: "Apply daylight saving time?",
-      default: rememberedDaylightSaving
-    },
-    {
       type: "list",
       name: "method",
-      message: "Prayer time convention",
+      message: withDefaultLabel("Prayer time convention", methodName(rememberedMethod)),
       choices: [
         ...Object.entries(CALCULATION_METHODS).map(([value, method]) => ({
           name: formatMethodChoice(method),
@@ -371,8 +455,8 @@ async function main() {
     {
       type: "input",
       name: "fajrAngle",
-      message: "Fajr angle",
-      default: String(preferences.fajrAngle ?? 18),
+      message: withDefaultLabel("Fajr angle", defaultFajrAngle),
+      default: String(defaultFajrAngle),
       when: (answersSoFar) => answersSoFar.method === CUSTOM_METHOD,
       validate: (value) => parseNumber(value, "Fajr angle", { min: 0, max: 30 }),
       filter: Number
@@ -380,8 +464,8 @@ async function main() {
     {
       type: "input",
       name: "ishaAngle",
-      message: "Isha angle",
-      default: String(preferences.ishaAngle ?? 17),
+      message: withDefaultLabel("Isha angle", defaultIshaAngle),
+      default: String(defaultIshaAngle),
       when: (answersSoFar) => answersSoFar.method === CUSTOM_METHOD,
       validate: (value) => parseNumber(value, "Isha angle", { min: 0, max: 30 }),
       filter: Number
@@ -389,28 +473,29 @@ async function main() {
     {
       type: "list",
       name: "asrShadowFactor",
-      message: "Asr convention",
+      message: withDefaultLabel("Asr convention", asrName(defaultAsrShadowFactor)),
       choices: [
         { name: "Standard (Shafi, Maliki, Hanbali)", value: 1 },
         { name: "Hanafi", value: 2 }
       ],
-      default: preferences.asrShadowFactor ?? 1
+      default: defaultAsrShadowFactor
     },
     {
       type: "input",
       name: "height",
-      message: "Elevation in meters",
-      default: String(preferences.height ?? location.elevation ?? 5),
-      validate: (value) => parseNumber(value, "Elevation", { min: 0, max: 10000 }),
+      message: withDefaultLabel("Elevation above sea level in meters", defaultElevation),
+      default: String(defaultElevation),
+      validate: (value) => parseNumber(value, "Elevation above sea level", { min: 0, max: 10000 }),
       filter: Number
     }
   ]);
 
-  const finalTimezone = applyDaylightSaving(answers.timezone, answers.daylightSaving);
+  const finalTimezone = applyDaylightSaving(timeSettings.baseTimezone, timeSettings.daylightSaving);
   const params = {
     ...date,
     ...answers,
     timezone: finalTimezone,
+    daylightSaving: timeSettings.daylightSaving,
     method: answers.method === CUSTOM_METHOD ? undefined : answers.method,
     latitude: location.latitude,
     longitude: location.longitude
@@ -427,9 +512,9 @@ async function main() {
       longitude: location.longitude,
       timezone: location.timezone
     },
-    baseTimezone: answers.timezone,
+    baseTimezone: timeSettings.baseTimezone,
     timezone: finalTimezone,
-    daylightSaving: answers.daylightSaving,
+    daylightSaving: timeSettings.daylightSaving,
     method: answers.method,
     fajrAngle: answers.fajrAngle,
     ishaAngle: answers.ishaAngle,
@@ -441,7 +526,7 @@ async function main() {
   if (location.city && location.country) {
     console.log(formatLocation(location));
   }
-  console.log(`UTC${params.timezone >= 0 ? "+" : ""}${params.timezone} | DST ${answers.daylightSaving ? "yes" : "no"} | ${location.timezone || "manual timezone"} | ${params.latitude}, ${params.longitude}`);
+  console.log(`UTC${params.timezone >= 0 ? "+" : ""}${params.timezone} | DST ${timeSettings.daylightSaving ? "yes" : "no"} | ${location.timezone || "manual timezone"} | ${params.latitude}, ${params.longitude}`);
   console.table(times);
 }
 
