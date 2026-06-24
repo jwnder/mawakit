@@ -7,6 +7,7 @@ Mawakit is an interactive command-line prayer time calculator built with Node.js
 - Search more than 234,000 locations from the GeoNames city database.
 - Shows the city time default before applying prompt memory.
 - Shows default values in prompt labels before each answer.
+- Displays an animated 3D startup banner with the app version.
 - Lets you choose city time defaults, remembered time settings, or manual UTC/daylight-saving settings.
 - Remembers your last prompt choices, including location, convention, Asr convention, UTC offset, daylight-saving setting, and elevation above sea level.
 - Supports common prayer-time conventions:

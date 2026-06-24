@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import figlet from "figlet";
 import inquirer from "inquirer";
 import { CALCULATION_METHODS, calculatePrayerTimes, toIsoDate } from "./prayer-times.js";
 
@@ -12,10 +13,56 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const locationsPath = path.join(rootDir, "data", "locations.json");
+const packagePath = path.join(rootDir, "package.json");
 const preferencesPath = path.join(getConfigDir(), "preferences.json");
 
 const CUSTOM_METHOD = "custom";
 
+function loadPackageInfo() {
+  try {
+    return JSON.parse(fs.readFileSync(packagePath, "utf8"));
+  } catch {
+    return { version: "0.0.0" };
+  }
+}
+
+function sleep(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function colorize(text, colorCode) {
+  return `\u001b[${colorCode}m${text}\u001b[0m`;
+}
+
+async function showIntro() {
+  const { version } = loadPackageInfo();
+  const title = figlet.textSync("Mawakit", {
+    font: "Larry 3D",
+    horizontalLayout: "default",
+    verticalLayout: "default"
+  });
+  const subtitle = `Prayer Times CLI v${version}`;
+
+  if (!process.stdout.isTTY) {
+    console.log(`${title}\n${subtitle}\n`);
+    return;
+  }
+
+  console.clear();
+  const titleLines = title.split("\n");
+  for (const line of titleLines) {
+    console.log(colorize(line, "36;1"));
+    await sleep(45);
+  }
+
+  process.stdout.write("\n");
+  for (const character of subtitle) {
+    process.stdout.write(colorize(character, "33;1"));
+    await sleep(22);
+  }
+  process.stdout.write("\n\n");
+  await sleep(180);
+}
 function getConfigDir() {
   if (process.env.APPDATA) {
     return path.join(process.env.APPDATA, "mawakit");
@@ -383,7 +430,7 @@ async function askForLocation(preferences) {
 }
 
 async function main() {
-  console.log("Mawakit Prayer Times\n");
+  await showIntro();
 
   const preferences = loadPreferences();
   const location = await askForLocation(preferences);

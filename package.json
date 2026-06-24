@@ -19,6 +19,7 @@
     "test": "node ./test/prayer-times.test.js"
   },
   "dependencies": {
+    "figlet": "^1.11.0",
     "inquirer": "^12.6.3"
   },
   "engines": {
