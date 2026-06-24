@@ -9,7 +9,9 @@
   "files": [
     "src",
     "data/locations.json",
-    "data/README.md"
+    "data/README.md",
+    "README.md",
+    "README.ar.md"
   ],
   "scripts": {
     "start": "node ./src/cli.js",

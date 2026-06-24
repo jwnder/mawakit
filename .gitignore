@@ -28,3 +28,7 @@ coverage/
 dist/
 build/
 *.tgz
+
+# Local app preferences
+.mawakit-preferences.json
+preferences.json
