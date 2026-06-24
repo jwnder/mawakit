@@ -267,10 +267,23 @@ function buildParameters(options, coordinates) {
 
   parameters.madhab = Number(options.asrShadowFactor) === 2 ? Madhab.Hanafi : Madhab.Shafi;
   parameters.rounding = Rounding.Nearest;
-  parameters.highLatitudeRule = HighLatitudeRule.recommended(coordinates);
+  parameters.highLatitudeRule = normalizeHighLatitudeRule(options.highLatitudeRule) || HighLatitudeRule.recommended(coordinates);
   parameters.polarCircleResolution = PolarCircleResolution.AqrabYaum;
 
   return parameters;
+}
+
+function normalizeHighLatitudeRule(value) {
+  const rules = {
+    middleOfTheNight: HighLatitudeRule.MiddleOfTheNight,
+    middleofthenight: HighLatitudeRule.MiddleOfTheNight,
+    seventhOfTheNight: HighLatitudeRule.SeventhOfTheNight,
+    seventhofthenight: HighLatitudeRule.SeventhOfTheNight,
+    twilightAngle: HighLatitudeRule.TwilightAngle,
+    twilightangle: HighLatitudeRule.TwilightAngle
+  };
+
+  return rules[value] || null;
 }
 
 function buildDate({ day, month, year }) {

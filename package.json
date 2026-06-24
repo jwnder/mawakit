@@ -16,7 +16,8 @@
   "scripts": {
     "start": "node ./src/cli.js",
     "mawakit": "node ./src/cli.js",
-    "test": "node ./test/prayer-times.test.js"
+    "test": "node ./test/prayer-times.test.js",
+    "compare:online": "node ./scripts/compare-online.js"
   },
   "dependencies": {
     "adhan": "^4.4.4",

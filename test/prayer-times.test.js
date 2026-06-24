@@ -126,3 +126,24 @@ test("legacy engine remains available for comparison", () => {
   assert.match(result.times.Fajr, /^\d{2}:\d{2}\s[ap]m$/);
   assert.ok(result.warnings.some((warning) => warning.includes("Legacy Mawakit")));
 });
+test("Adhan and legacy engines stay within a small range for Cairo with the same settings", () => {
+  const shared = {
+    day: 24,
+    month: 6,
+    year: 2026,
+    latitude: 30.0444,
+    longitude: 31.2357,
+    timezone: 3,
+    timezoneName: "Africa/Cairo",
+    height: 23,
+    method: "egyptian",
+    asrShadowFactor: 1
+  };
+  const adhan = calculatePrayerTimes({ ...shared, engine: "adhan" });
+  const legacy = calculatePrayerTimes({ ...shared, engine: "legacy" });
+
+  for (const prayer of ["Fajr", "Sunrise", "Zuhr", "Asr", "Sunset", "Esha"]) {
+    const difference = Math.abs(minutesSinceMidnight(adhan.times[prayer]) - minutesSinceMidnight(legacy.times[prayer]));
+    assert.ok(difference <= 5, `${prayer} differs by ${difference} minutes`);
+  }
+});

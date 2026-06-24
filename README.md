@@ -78,6 +78,14 @@ Run tests:
 npm test
 ```
 
+Compare Mawakit against the online AlAdhan API for several world locations:
+
+```bash
+npm run compare:online
+```
+
+This network check covers multiple calculation conventions and time zones. It is intentionally separate from the offline test suite because online calculators can change availability, method metadata, or local adjustments.
+
 Check syntax:
 
 ```bash
