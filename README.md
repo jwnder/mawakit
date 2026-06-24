@@ -1,6 +1,6 @@
 # Mawakit Prayer Times
 
-Mawakit is an interactive command-line prayer time calculator built with Node.js and Inquirer. It calculates daily prayer times for cities around the world using selectable prayer-time conventions.
+Mawakit is an interactive command-line prayer time calculator built with Node.js, Inquirer, and the Adhan prayer-time calculation library. It calculates daily prayer times for cities around the world using selectable prayer-time conventions.
 
 ## Features
 
@@ -26,6 +26,8 @@ Mawakit is an interactive command-line prayer time calculator built with Node.js
   - Original Mawakit default
   - Custom Fajr and Isha angles
 - Supports Standard and Hanafi Asr conventions.
+- Lets you choose the Adhan library engine or the legacy Mawakit engine for comparison.
+- Prints accuracy notes after each calculation, including convention, engine, and high-latitude warnings.
 
 ## Requirements
 
@@ -92,4 +94,4 @@ node ./scripts/import-geonames.js
 
 ## Notes
 
-High-latitude fallback rules are not implemented yet. If sunrise, sunset, Fajr, or Isha cannot be calculated astronomically for a location/date, the result may show `Unavailable`.
+Prayer times are calculated estimates. Results can differ from official timetables because of convention choices, local adjustments, rounding, coordinates, high-latitude rules, and authority-specific corrections. Always confirm official local mosque or authority timetables when accuracy is critical.

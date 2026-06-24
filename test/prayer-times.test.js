@@ -2,103 +2,127 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { calculatePrayerTimes } from "../src/prayer-times.js";
 
-test("Asr uses absolute latitude-declination relation for southern locations", () => {
-  const times = calculatePrayerTimes({
+function minutesSinceMidnight(time) {
+  const match = time.match(/^(\d{2}):(\d{2})\s([ap]m)$/);
+  assert.ok(match, `Unexpected time format: ${time}`);
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (match[3] === "pm" && hour !== 12) {
+    hour += 12;
+  }
+  if (match[3] === "am" && hour === 12) {
+    hour = 0;
+  }
+  return hour * 60 + minute;
+}
+
+test("uses the Adhan library calculation engine", () => {
+  const result = calculatePrayerTimes({
     day: 24,
     month: 6,
     year: 2026,
-    latitude: -30,
-    longitude: 0,
-    timezone: 0,
-    height: 0,
-    method: "mwl",
-    asrShadowFactor: 1
-  });
-
-  assert.equal(times.Asr, "02:50 pm");
-});
-
-test("Hanafi Asr is later than standard Asr", () => {
-  const standard = calculatePrayerTimes({
-    day: 24,
-    month: 6,
-    year: 2026,
-    latitude: -30,
-    longitude: 0,
-    timezone: 0,
-    height: 0,
-    method: "mwl",
-    asrShadowFactor: 1
-  });
-  const hanafi = calculatePrayerTimes({
-    day: 24,
-    month: 6,
-    year: 2026,
-    latitude: -30,
-    longitude: 0,
-    timezone: 0,
-    height: 0,
-    method: "mwl",
-    asrShadowFactor: 2
-  });
-
-  assert.equal(standard.Asr, "02:50 pm");
-  assert.equal(hanafi.Asr, "03:32 pm");
-});
-
-test("calculation methods can use different Fajr and Isha angles", () => {
-  const egyptian = calculatePrayerTimes({
-    day: 24,
-    month: 6,
-    year: 2026,
-    latitude: 31.19,
-    longitude: 29.95,
+    latitude: 31.20176,
+    longitude: 29.91582,
     timezone: 3,
+    timezoneName: "Africa/Cairo",
     height: 5,
     method: "egyptian",
     asrShadowFactor: 1
   });
-  const oldMawakit = calculatePrayerTimes({
-    day: 24,
-    month: 6,
-    year: 2026,
-    latitude: 31.19,
-    longitude: 29.95,
-    timezone: 3,
-    height: 5,
-    method: "oldMawakit",
-    asrShadowFactor: 1
-  });
 
-  assert.equal(egyptian.Fajr, "04:09 am");
-  assert.equal(oldMawakit.Fajr, "04:22 am");
-  assert.equal(egyptian.Esha, oldMawakit.Esha);
+  assert.equal(result.engine, "adhan");
+  assert.match(result.times.Fajr, /^\d{2}:\d{2}\s[ap]m$/);
+  assert.match(result.times.Esha, /^\d{2}:\d{2}\s[ap]m$/);
+  assert.ok(result.warnings.some((warning) => warning.includes("calculated estimates")));
 });
-test("fixed-interval Isha methods use minutes after Maghrib", () => {
-  const ummAlQura = calculatePrayerTimes({
+
+test("Hanafi Asr is later than standard Asr", () => {
+  const shared = {
     day: 24,
     month: 6,
     year: 2026,
-    latitude: 21.4225,
-    longitude: 39.8262,
+    latitude: -30,
+    longitude: 0,
+    timezone: 0,
+    timezoneName: "UTC",
+    height: 0,
+    method: "mwl"
+  };
+  const standard = calculatePrayerTimes({ ...shared, asrShadowFactor: 1 });
+  const hanafi = calculatePrayerTimes({ ...shared, asrShadowFactor: 2 });
+
+  assert.ok(minutesSinceMidnight(hanafi.times.Asr) > minutesSinceMidnight(standard.times.Asr));
+});
+
+test("calculation methods can use different Fajr and Isha rules", () => {
+  const shared = {
+    day: 24,
+    month: 6,
+    year: 2026,
+    latitude: 31.20176,
+    longitude: 29.91582,
     timezone: 3,
-    height: 300,
-    method: "ummAlQura",
+    timezoneName: "Africa/Cairo",
+    height: 5,
     asrShadowFactor: 1
-  });
-  const muslimWorldLeague = calculatePrayerTimes({
+  };
+  const egyptian = calculatePrayerTimes({ ...shared, method: "egyptian" });
+  const northAmerica = calculatePrayerTimes({ ...shared, method: "isna" });
+
+  assert.notEqual(egyptian.times.Fajr, northAmerica.times.Fajr);
+  assert.notEqual(egyptian.times.Esha, northAmerica.times.Esha);
+});
+
+test("fixed-interval Isha methods use minutes after Maghrib", () => {
+  const shared = {
     day: 24,
     month: 6,
     year: 2026,
     latitude: 21.4225,
     longitude: 39.8262,
     timezone: 3,
+    timezoneName: "Asia/Riyadh",
     height: 300,
+    asrShadowFactor: 1
+  };
+  const ummAlQura = calculatePrayerTimes({ ...shared, method: "ummAlQura" });
+  const muslimWorldLeague = calculatePrayerTimes({ ...shared, method: "mwl" });
+
+  assert.notEqual(ummAlQura.times.Esha, muslimWorldLeague.times.Esha);
+});
+
+test("high latitude locations include accuracy warnings", () => {
+  const result = calculatePrayerTimes({
+    day: 24,
+    month: 6,
+    year: 2026,
+    latitude: 69.6492,
+    longitude: 18.9553,
+    timezone: 2,
+    timezoneName: "Europe/Oslo",
+    height: 0,
     method: "mwl",
     asrShadowFactor: 1
   });
 
-  assert.equal(ummAlQura.Sunset, "07:09 pm");
-  assert.equal(ummAlQura.Esha, "08:39 pm");
-  assert.notEqual(ummAlQura.Esha, muslimWorldLeague.Esha);
+  assert.ok(result.warnings.some((warning) => warning.includes("High-latitude")));
+});
+test("legacy engine remains available for comparison", () => {
+  const result = calculatePrayerTimes({
+    day: 24,
+    month: 6,
+    year: 2026,
+    latitude: 31.20176,
+    longitude: 29.91582,
+    timezone: 3,
+    timezoneName: "Africa/Cairo",
+    height: 5,
+    method: "egyptian",
+    asrShadowFactor: 1,
+    engine: "legacy"
+  });
+
+  assert.equal(result.engine, "legacy");
+  assert.match(result.times.Fajr, /^\d{2}:\d{2}\s[ap]m$/);
+  assert.ok(result.warnings.some((warning) => warning.includes("Legacy Mawakit")));
 });

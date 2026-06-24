@@ -96,6 +96,9 @@ function withDefaultLabel(message, value) {
   return `${message} (${value})`;
 }
 
+function engineName(value) {
+  return value === "legacy" ? "Legacy Mawakit" : "Adhan library";
+}
 function methodName(value) {
   if (value === CUSTOM_METHOD) {
     return "Custom angles";
@@ -477,6 +480,7 @@ async function main() {
   const date = { ...dateBase, day };
   const timezoneDefaults = getTimezoneDefaults(location, date);
   const timeSettings = await askTimeSettings(preferences, timezoneDefaults);
+  const rememberedEngine = preferences.engine === "legacy" ? "legacy" : "adhan";
   const rememberedMethod = preferences.method && (CALCULATION_METHODS[preferences.method] || preferences.method === CUSTOM_METHOD)
     ? preferences.method
     : location.country === "Egypt" ? "egyptian" : "mwl";
@@ -486,6 +490,16 @@ async function main() {
   const defaultIshaAngle = preferences.ishaAngle ?? 17;
 
   const answers = await inquirer.prompt([
+    {
+      type: "list",
+      name: "engine",
+      message: withDefaultLabel("Calculation engine", engineName(rememberedEngine)),
+      choices: [
+        { name: "Adhan library (recommended)", value: "adhan" },
+        { name: "Legacy Mawakit (comparison only)", value: "legacy" }
+      ],
+      default: rememberedEngine
+    },
     {
       type: "list",
       name: "method",
@@ -542,12 +556,14 @@ async function main() {
     ...date,
     ...answers,
     timezone: finalTimezone,
+    timezoneName: location.timezone,
     daylightSaving: timeSettings.daylightSaving,
+    engine: answers.engine,
     method: answers.method === CUSTOM_METHOD ? undefined : answers.method,
     latitude: location.latitude,
     longitude: location.longitude
   };
-  const times = calculatePrayerTimes(params);
+  const result = calculatePrayerTimes(params);
 
   savePreferences({
     location: {
@@ -562,6 +578,7 @@ async function main() {
     baseTimezone: timeSettings.baseTimezone,
     timezone: finalTimezone,
     daylightSaving: timeSettings.daylightSaving,
+    engine: answers.engine,
     method: answers.method,
     fajrAngle: answers.fajrAngle,
     ishaAngle: answers.ishaAngle,
@@ -573,8 +590,14 @@ async function main() {
   if (location.city && location.country) {
     console.log(formatLocation(location));
   }
-  console.log(`UTC${params.timezone >= 0 ? "+" : ""}${params.timezone} | DST ${timeSettings.daylightSaving ? "yes" : "no"} | ${location.timezone || "manual timezone"} | ${params.latitude}, ${params.longitude}`);
-  console.table(times);
+  console.log(`UTC${params.timezone >= 0 ? "+" : ""}${params.timezone} | DST ${timeSettings.daylightSaving ? "yes" : "no"} | ${engineName(result.engine)} | ${location.timezone || "manual timezone"} | ${params.latitude}, ${params.longitude}`);
+  console.table(result.times);
+  if (result.warnings.length > 0) {
+    console.log("\nAccuracy notes:");
+    for (const warning of result.warnings) {
+      console.log(`- ${warning}`);
+    }
+  }
 }
 
 main().catch((error) => {

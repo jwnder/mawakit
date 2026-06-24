@@ -19,6 +19,7 @@
     "test": "node ./test/prayer-times.test.js"
   },
   "dependencies": {
+    "adhan": "^4.4.4",
     "figlet": "^1.11.0",
     "inquirer": "^12.6.3"
   },
